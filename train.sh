@@ -62,7 +62,7 @@ torchrun \
  	$python_script  \
 --epochs 20 --batch_size 512 \
 --learning_rate 4e-3 \
---criterion "mae" \
+--criterion "bce" \
 --seed 678 \
 --label_smoothing 0 \
 --dataset_path data/k_10/10M_k10.h5 \

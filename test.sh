@@ -4,7 +4,7 @@ LOG_FILE="test_all_dlen.log"
 mkdir -p logs
 echo "Starting test sweep..." > "$LOG_FILE"
 
-for i in {1..4}; do
+for i in {4..4}; do
     echo "Running with --des_len=$i" | tee -a "$LOG_FILE"
 
     python atari/test_QGT.py \
@@ -12,8 +12,8 @@ for i in {1..4}; do
         --num_iter 1000 \
         --num_cores 6 \
         --k 4 \
-        --checkpoint_cov jolly-puddle-5.pth \
-        --checkpoint_rand jolly-puddle-5.pth \
+        --checkpoint_cov easy-wave-6.pth \
+        --checkpoint_rand easy-wave-6.pth \
         --mode DT \
         --pickle models/dataset_k7.pkl
         >> "$LOG_FILE" 2>&1

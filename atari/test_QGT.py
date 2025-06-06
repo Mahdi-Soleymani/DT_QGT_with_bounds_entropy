@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import os
 import pickle
 import hadamard as h
+import math
 
 
 
@@ -23,6 +24,11 @@ from mingpt.model_QGT import DecisionTransformer as QGT_model  # Alias your cust
 from gurobipy import Model as GurobiModel  # Alias Gurobi's Model
 
 import torch
+
+def num_of_total_sols(k):
+    """Calculates C(2k - 1, k) / k for a given k."""
+    if k < 1: raise ValueError("k must be a positive integer.")
+    return math.comb(2 * k - 1, k) 
 
 def flip_or_randomize(next_query):
     if torch.all(next_query == 0):
@@ -139,7 +145,7 @@ def test_sample(desired_num_of_queries, k, checkpoint_cov_path, checkpoint_rand_
         ckpt_path=checkpoint_cov_path,  # Set a valid path if you want to save checkpoints
         num_workers=0,
         rtg_dim=1,
-        n_embd=128,
+        n_embd=512,
         query_result_dim=1,
         block_size=10,### number of max timesteps in sequence (seq len=3 times this)
         embd_pdrop = 0.1,
@@ -216,28 +222,15 @@ def test_sample(desired_num_of_queries, k, checkpoint_cov_path, checkpoint_rand_
     #     config.desired_num_of_queries=pickel_dict[key]
     
     # print(config.desired_num_of_queries)
-    q, r, rtg, mask_length= [ torch.full((config.k,), pad_vec_val, dtype=torch.int)],[config.k],[-config.desired_num_of_queries], 1   # Generate a sequence
-    queries=(pad_sequence2d(q, max_len,pad_vec_val))  # Pad queries
-    results=(pad_sequence(r, max_len,pad_scalar_val))
-    rtgs=(pad_sequence(rtg, max_len,pad_scalar_val))
-
-
-    mask_length = torch.tensor(mask_length,device=device)
-    results = results.to(device)
-    rtgs    = rtgs.to(device)
-    queries = queries.to(device)
-
-
 
     h_mat=h.generate_sorted_kronecker(config.k)
 
-
-
-
-
+   
     #### to write nothing in the log 
     G_model.setParam(GRB.Param.OutputFlag, 0)
     # Create a list to store the variables for ILP
+    max_num_of_sols_kept=2*num_of_total_sols(k)
+    G_model.setParam(GRB.Param.PoolSolutions, max_num_of_sols_kept)
     variables = []
 
     # Add variables dynamically
@@ -253,6 +246,23 @@ def test_sample(desired_num_of_queries, k, checkpoint_cov_path, checkpoint_rand_
 
     # Set the objective (e.g., maximize x + y)
     G_model.setObjective(1 , GRB.MAXIMIZE)
+    G_model.optimize()
+
+
+
+
+
+    q, r, rtg, mask_length= [ torch.full((config.k,), pad_vec_val, dtype=torch.int)],[config.k],[np.log2(G_model.SolCount)], 1   # Generate a sequence
+    queries=(pad_sequence2d(q, max_len,pad_vec_val))  # Pad queries
+    results=(pad_sequence(r, max_len,pad_scalar_val))
+    rtgs=(pad_sequence(rtg, max_len,pad_scalar_val))
+
+
+    mask_length = torch.tensor(mask_length,device=device)
+    results = results.to(device)
+    rtgs    = rtgs.to(device)
+    queries = queries.to(device)
+
 
 
     num_of_constraints=0
@@ -393,11 +403,11 @@ def test_sample(desired_num_of_queries, k, checkpoint_cov_path, checkpoint_rand_
                 is_solved=True
             else:
                 if num_of_constraints<config.k:
-                    rtgs[:,    num_of_constraints]=min(-1,-config.desired_num_of_queries+num_of_constraints)
+                    rtgs[:,    num_of_constraints]=np.log2(num_of_solutions)
                     results[:,num_of_constraints]=new_result
                     mask_length[:,]=num_of_constraints+1
                 else:
-                    rtgs = torch.cat([rtgs[:, 1:], torch.full((rtgs.size(0), 1), -1, device=device)], dim=1)
+                    rtgs = torch.cat([rtgs[:, 1:], torch.full((rtgs.size(0), 1), np.log2(num_of_solutions), device=device)], dim=1)
                     results = torch.cat([results[:, 1:], new_result.unsqueeze(1)], dim=1)
                     mask_length[:,]=config.k-1
 
