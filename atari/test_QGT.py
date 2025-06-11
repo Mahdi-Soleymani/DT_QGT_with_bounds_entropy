@@ -366,8 +366,8 @@ def test_sample(desired_num_of_queries, k, checkpoint_cov_path, checkpoint_rand_
             sampling="hard"
 
 
-        if num_of_constraints<config.k:
-            queries[:, num_of_constraints,:] = next_query
+        if num_of_constraints<=config.k:
+            queries[:, num_of_constraints-1,:] = next_query
         else:
             next_query = next_query.to(queries.device)
             #queries = torch.cat([queries[:, 1:, :], next_query.unsqueeze(1)], dim=1)
@@ -417,6 +417,9 @@ def test_sample(desired_num_of_queries, k, checkpoint_cov_path, checkpoint_rand_
         
     
     # print("end")
+    # print(num_of_constraints)
+    # print(queries)
+    # print(rtgs)
 
     return num_of_constraints, is_solved
 
